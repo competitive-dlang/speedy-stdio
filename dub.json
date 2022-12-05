@@ -4,6 +4,6 @@
 	"authors": ["Siarhei Siamashka"],
 	"copyright": "Copyright © 2022, Siarhei Siamashka",
 	"license": "BSL-1.0",
-	"sourceFiles": ["speedy/stdio.d"]
+	"sourceFiles": ["speedy/stdio.d"],
 	"importPaths": ["."],
 }
