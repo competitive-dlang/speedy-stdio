@@ -77,7 +77,7 @@ private struct SpeedyWriter
         return expected_data == cast(string) outbuf[0 .. outbuf_size];
     }
 
-    version (linux)
+    version (Posix)
     {
 
         static void rawWriteStdout(char[] buffer) @nogc @trusted
