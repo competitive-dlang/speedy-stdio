@@ -1,5 +1,8 @@
 # speedy-stdio
 
+[![dmd and ldc](https://github.com/ssvb/speedy-stdio/actions/workflows/main.yml/badge.svg)](https://github.com/ssvb/speedy-stdio/actions/workflows/main.yml)
+[![gdc](https://github.com/ssvb/speedy-stdio/actions/workflows/gdc.yml/badge.svg)](https://github.com/ssvb/speedy-stdio/actions/workflows/gdc.yml)
+
 A somewhat faster replacement for a subset of [std.stdio](https://dlang.org/library/std/stdio.html)
 functionality from the standard D language library. The primary purpose is to speed up
 stdin/stdout as much as possible for optimal use on the competitive programming platforms,
