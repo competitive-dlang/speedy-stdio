@@ -371,6 +371,49 @@ void writeln(T...)(T args)
 
 ///////////////////////////////////////////////////////////////////////////////
 
+import std.format;
+
+private struct SpeedyWriterSink
+{
+    void put(T)(T arg) { SpeedyWriter.put(arg); }
+}
+
+void writef(alias fmt, A...)(A args)
+{
+    SpeedyWriterLock.lock();
+    SpeedyWriterSink s;
+    formattedWrite!fmt(s, args);
+    SpeedyWriterLock.unlock();
+}
+
+void writef(Char, A...)(in Char[] fmt, A args)
+{
+    SpeedyWriterLock.lock();
+    SpeedyWriterSink s;
+    formattedWrite(s, fmt, args);
+    SpeedyWriterLock.unlock();
+}
+
+void writefln(alias fmt, A...)(A args)
+{
+    SpeedyWriterLock.lock();
+    SpeedyWriterSink s;
+    formattedWrite!fmt(s, args);
+    SpeedyWriter.put('\n');
+    SpeedyWriterLock.unlock();
+}
+
+void writefln(Char, A...)(in Char[] fmt, A args)
+{
+    SpeedyWriterLock.lock();
+    SpeedyWriterSink s;
+    formattedWrite(s, fmt, args);
+    SpeedyWriter.put('\n');
+    SpeedyWriterLock.unlock();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
 @nogc unittest
 {
     SpeedyWriter.silenced = true;
@@ -465,4 +508,14 @@ unittest
        writeln('[', ']');
     auto expected_data = "[]\n".replicate(n);
     assert(SpeedyWriter.buffer_contains(expected_data), "multithreaded test");
+}
+
+unittest
+{
+    SpeedyWriter.silenced = true;
+    SpeedyWriter.flush;
+    writef!"%d %d"(12, 34);
+    writef(" %d %d", 56, 78);
+    auto expected_data = "12 34 56 78";
+    assert(SpeedyWriter.buffer_contains(expected_data), "writef failed");
 }
