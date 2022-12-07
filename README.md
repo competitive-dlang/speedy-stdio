@@ -1,5 +1,8 @@
 # speedy-stdio
 
+[![Dub version](https://img.shields.io/dub/v/speedy-stdio.svg)](https://code.dlang.org/packages/speedy-stdio)
+[![Dub downloads](https://img.shields.io/dub/dt/speedy-stdio.svg)](https://code.dlang.org/packages/speedy-stdio)
+[![License](https://img.shields.io/dub/l/speedy-stdio.svg)](https://code.dlang.org/packages/speedy-stdio)
 [![dmd and ldc](https://github.com/ssvb/speedy-stdio/actions/workflows/main.yml/badge.svg)](https://github.com/ssvb/speedy-stdio/actions/workflows/main.yml)
 [![gdc](https://github.com/ssvb/speedy-stdio/actions/workflows/gdc.yml/badge.svg)](https://github.com/ssvb/speedy-stdio/actions/workflows/gdc.yml)
 
