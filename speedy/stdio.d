@@ -31,9 +31,12 @@ module speedy.stdio;
 
 private const BUFSIZE = 32 * 1024;
 
+public import std.stdio;
+import std.range, std.format, std.algorithm, std.traits, core.bitop;
+import std.exception;
+
 private struct SpeedyWriter
 {
-    import std.range, std.algorithm, std.traits, core.bitop;
 
     private static bool isChar(T)()
     {
@@ -71,11 +74,6 @@ private struct SpeedyWriter
     // Writing to the actual STDOUT can be suppressed if this variable is set
     // to 'true'
     shared static bool silenced = false;
-
-    static bool buffer_contains(string expected_data) @nogc @trusted
-    {
-        return expected_data == cast(string) outbuf[0 .. outbuf_size];
-    }
 
     version (Posix)
     {
@@ -335,43 +333,17 @@ private struct SpeedyWriter
 }
 
 // From: https://github.com/dlang/phobos/blob/master/std/concurrency.d
-import core.atomic, core.thread;
-static shared struct SpinLock
+private static shared struct SpinLock
 {
+    import core.atomic, core.thread;
     void lock() @nogc @trusted { while (!cas(&locked, false, true)) { Thread.yield(); } }
     void unlock() @nogc { atomicStore!(MemoryOrder.rel)(locked, false); }
     bool locked;
 }
-static shared SpinLock SpeedyWriterLock;
+
+private static shared SpinLock SpeedyWriterLock;
 
 ///////////////////////////////////////////////////////////////////////////////
-
-void write(T...)(T args)
-{
-    SpeedyWriterLock.lock();
-    foreach (arg; args)
-        static if (SpeedyWriter.isNogcCompatible!(typeof(arg)))
-            SpeedyWriter.put(arg);
-        else
-            SpeedyWriter.put_gc(arg);
-    SpeedyWriterLock.unlock();
-}
-
-void writeln(T...)(T args)
-{
-    SpeedyWriterLock.lock();
-    foreach (arg; args)
-        static if (SpeedyWriter.isNogcCompatible!(typeof(arg)))
-            SpeedyWriter.put(arg);
-        else
-            SpeedyWriter.put_gc(arg);
-    SpeedyWriter.put('\n');
-    SpeedyWriterLock.unlock();
-}
-
-///////////////////////////////////////////////////////////////////////////////
-
-import std.format, std.range, std.exception, std.algorithm, std.traits;
 
 struct FmtToken
 {
@@ -448,21 +420,18 @@ ParsedFmt parsefmt(string fmt)
     return result;
 }
 
-private struct SpeedyWriterSink
-{
-    void put(T)(T arg) { SpeedyWriter.put(arg); }
-}
-
 // Similar to checkFormatException from Phobos, but only accepts a small
 // subset of possible formats.
 enum isSpeedyCompatibleFormat(alias fmt, Args...) =
 {
     try
     {
-        void tassert(T)(T cond) {
+        void tassert(T)(T cond)
+        {
             if (!cond)
                 throw new Exception("");
         }
+
         static immutable xfmt = parsefmt(fmt);
         tassert(xfmt.tokens.length == Args.length);
         foreach (i, arg; Args.init)
@@ -497,175 +466,113 @@ enum isSpeedyCompatibleFormat(alias fmt, Args...) =
     return true;
 }();
 
-private SpeedyWriterSink s;
-
-private void writef_speedy(alias fmt, A...)(A args)
+private struct SpeedyStdout
 {
-    static immutable xfmt = parsefmt(fmt);
-    SpeedyWriter.put(xfmt.prefix);
-    foreach (i, arg; args)
+    version (unittest)
     {
-        static if (xfmt.tokens[i].compound)
-            SpeedyWriter.put_with_joiner(arg, xfmt.tokens[i].separator);
-        else
-            SpeedyWriter.put(arg);
-        SpeedyWriter.put(xfmt.tokens[i].suffix);
+        static void silenced()(bool newval)
+        {
+            SpeedyWriter.silenced = newval;
+        }
+
+        static bool buffer_contains()(string expected_data) @trusted
+        {
+            string buf = cast(string) SpeedyWriter.outbuf[0 .. SpeedyWriter.outbuf_size];
+            return expected_data == buf;
+        }
     }
+
+    private struct SpeedyWriterSink
+    {
+        void put(T)(T arg) { SpeedyWriter.put(arg); }
+    }
+
+    static private SpeedyWriterSink s;
+
+    static void flush()()
+    {
+        SpeedyWriter.flush;
+    }
+
+    static private void writef_speedy(alias fmt, A...)(A args)
+    {
+        static immutable xfmt = parsefmt(fmt);
+        SpeedyWriter.put(xfmt.prefix);
+        foreach (i, arg; args)
+        {
+            static if (xfmt.tokens[i].compound)
+                SpeedyWriter.put_with_joiner(arg, xfmt.tokens[i].separator);
+            else
+                SpeedyWriter.put(arg);
+            SpeedyWriter.put(xfmt.tokens[i].suffix);
+        }
+    }
+
+    static void writef(alias fmt, A...)(A args)
+    {
+        SpeedyWriterLock.lock();
+        static if (isSpeedyCompatibleFormat!(fmt, A))
+            writef_speedy!fmt(args);
+        else
+            formattedWrite!fmt(s, args);
+        SpeedyWriterLock.unlock();
+    }
+
+    static void writef(Char, A...)(in Char[] fmt, A args)
+    {
+        SpeedyWriterLock.lock();
+        formattedWrite(s, fmt, args);
+        SpeedyWriterLock.unlock();
+    }
+
+    static void writefln(alias fmt, A...)(A args)
+    {
+        SpeedyWriterLock.lock();
+        static if (isSpeedyCompatibleFormat!(fmt, A))
+            writef_speedy!fmt(args);
+        else
+            formattedWrite!fmt(s, args);
+        SpeedyWriter.put('\n');
+        SpeedyWriterLock.unlock();
+    }
+
+    static void writefln(Char, A...)(in Char[] fmt, A args)
+    {
+        SpeedyWriterLock.lock();
+        SpeedyWriterSink s;
+        formattedWrite(s, fmt, args);
+        SpeedyWriter.put('\n');
+        SpeedyWriterLock.unlock();
+    }
+
+    static void write(T...)(T args)
+    {
+        SpeedyWriterLock.lock();
+        foreach (arg; args)
+            static if (SpeedyWriter.isNogcCompatible!(typeof(arg)))
+                SpeedyWriter.put(arg);
+            else
+                SpeedyWriter.put_gc(arg);
+        SpeedyWriterLock.unlock();
+    }
+
+    static void writeln(T...)(T args)
+    {
+        SpeedyWriterLock.lock();
+        foreach (arg; args)
+            static if (SpeedyWriter.isNogcCompatible!(typeof(arg)))
+                SpeedyWriter.put(arg);
+            else
+                SpeedyWriter.put_gc(arg);
+        SpeedyWriter.put('\n');
+        SpeedyWriterLock.unlock();
+    }
+
 }
 
-void writef(alias fmt, A...)(A args)
-{
-    SpeedyWriterLock.lock();
-    static if (isSpeedyCompatibleFormat!(fmt, A))
-        writef_speedy!fmt(args);
-    else
-        formattedWrite!fmt(s, args);
-    SpeedyWriterLock.unlock();
-}
+alias write = SpeedyStdout.write;
+alias writeln = SpeedyStdout.writeln;
+alias writef = SpeedyStdout.writef;
+alias writefln = SpeedyStdout.writefln;
 
-void writef(Char, A...)(in Char[] fmt, A args)
-{
-    SpeedyWriterLock.lock();
-    formattedWrite(s, fmt, args);
-    SpeedyWriterLock.unlock();
-}
-
-void writefln(alias fmt, A...)(A args)
-{
-    SpeedyWriterLock.lock();
-    static if (isSpeedyCompatibleFormat!(fmt, A))
-        writef_speedy!fmt(args);
-    else
-        formattedWrite!fmt(s, args);
-    SpeedyWriter.put('\n');
-    SpeedyWriterLock.unlock();
-}
-
-void writefln(Char, A...)(in Char[] fmt, A args)
-{
-    SpeedyWriterLock.lock();
-    SpeedyWriterSink s;
-    formattedWrite(s, fmt, args);
-    SpeedyWriter.put('\n');
-    SpeedyWriterLock.unlock();
-}
-
-///////////////////////////////////////////////////////////////////////////////
-
-@nogc unittest
-{
-    SpeedyWriter.silenced = true;
-    SpeedyWriter.flush;
-    writeln(1);
-    write(2);
-    write("hello");
-    writeln(7, "xyz");
-    int[3] a = [1, -2, 3];
-    write(true);
-    write(a);
-    int[2][2] b = [[7, 8], [9, 10]];
-    write(b);
-    write(1 > 2);
-    auto expected_data = "1\n2hello7xyz\ntrue[1, -2, 3][[7, 8], [9, 10]]false";
-    assert(SpeedyWriter.buffer_contains(expected_data));
-}
-
-@nogc unittest
-{
-    SpeedyWriter.silenced = true;
-    SpeedyWriter.flush;
-    writeln(int.min);
-    writeln(int.max);
-    writeln(uint.min);
-    writeln(uint.max);
-    writeln(long.min);
-    writeln(long.max);
-    writeln(ulong.min);
-    writeln(ulong.max);
-    auto expected_data = "-2147483648\n2147483647\n0\n4294967295\n" ~
-        "-9223372036854775808\n9223372036854775807\n" ~
-        "0\n18446744073709551615\n";
-    assert(SpeedyWriter.buffer_contains(expected_data));
-}
-
-@nogc unittest
-{
-    SpeedyWriter.silenced = true;
-    SpeedyWriter.flush;
-    int[3] a = [1, 2, 3];
-    writefln!"%d"(123);
-    writefln!"hello %d %(%d %% %)"(123, a);
-    writefln!"%(%s, %)"(a);
-    auto expected_data = "123\nhello 123 1 % 2 % 3\n1, 2, 3\n";
-    assert(SpeedyWriter.buffer_contains(expected_data), "writefln");
-}
-
-unittest
-{
-    SpeedyWriter.silenced = true;
-    SpeedyWriter.flush;
-    string[2] a = ["abc", "xyz"];
-    writeln(a);
-    auto expected_data = "[\"abc\", \"xyz\"]\n";
-    assert(SpeedyWriter.buffer_contains(expected_data));
-}
-
-unittest
-{
-    SpeedyWriter.silenced = true;
-    SpeedyWriter.flush;
-    wchar c = 'ß';
-    dstring s = "ÄÖÜ";
-    writeln(c, s);
-    auto expected_data = "ßÄÖÜ\n";
-    assert(SpeedyWriter.buffer_contains(expected_data));
-}
-
-unittest
-{
-    SpeedyWriter.silenced = true;
-    SpeedyWriter.flush;
-    wchar[2] a;
-    a[0] = 'ß';
-    a[1] = 'Ä';
-    auto b = new dchar[3];
-    b[0] = 'Ä';
-    b[1] = 'Ö';
-    b[2] = 'Ü';
-    writeln(a, b);
-    auto expected_data = "ßÄÄÖÜ\n";
-    assert(SpeedyWriter.buffer_contains(expected_data));
-}
-
-unittest
-{
-    import std.typecons : tuple;
-
-    SpeedyWriter.silenced = true;
-    SpeedyWriter.flush;
-    writeln(tuple(int.min, int.max), ' ', int.min, ' ', int.max);
-    auto expected_data = "Tuple!(int, int)(-2147483648, 2147483647) -2147483648 2147483647\n";
-    assert(SpeedyWriter.buffer_contains(expected_data));
-}
-
-@system unittest
-{
-    import std.parallelism, std.range;
-    SpeedyWriter.silenced = true;
-    SpeedyWriter.flush;
-    int n = 1000;
-    foreach (i; taskPool.parallel(iota(n)))
-       writeln('[', ']');
-    auto expected_data = "[]\n".replicate(n);
-    assert(SpeedyWriter.buffer_contains(expected_data), "multithreaded test");
-}
-
-unittest
-{
-    SpeedyWriter.silenced = true;
-    SpeedyWriter.flush;
-    writef!"%d %d"(12, 34);
-    writef(" %d %d", 56, 78);
-    auto expected_data = "12 34 56 78";
-    assert(SpeedyWriter.buffer_contains(expected_data), "writef failed");
-}
+SpeedyStdout stdout;

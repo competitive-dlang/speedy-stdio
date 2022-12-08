@@ -2,8 +2,7 @@
 	"name": "speedy-stdio",
 	"description": "A faster replacement for a subset of std.stdio",
 	"authors": ["Siarhei Siamashka"],
-	"copyright": "Copyright © 2022, Siarhei Siamashka",
 	"license": "BSL-1.0",
-	"sourceFiles": ["speedy/stdio.d"],
-	"importPaths": ["."],
+	"sourceFiles": ["speedy/stdio.d", "speedy/stdio_tests_nogc.d", "speedy/stdio_tests.d"],
+	"importPaths": ["."]
 }
