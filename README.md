@@ -6,6 +6,10 @@
 [![dmd and ldc](https://github.com/ssvb/speedy-stdio/actions/workflows/main.yml/badge.svg)](https://github.com/ssvb/speedy-stdio/actions/workflows/main.yml)
 [![gdc](https://github.com/ssvb/speedy-stdio/actions/workflows/gdc.yml/badge.svg)](https://github.com/ssvb/speedy-stdio/actions/workflows/gdc.yml)
 
+**Note 1: It's still an incomplete alpha version right now. A lot of changes are expected within the next few days. And updates for this README too.**
+
+**Note 2: This module is not designed to work nice together with 'std.stdio' to access stdin/stdout from the same program. This is more like just API compatible replacement/emulation (faster and @nogc compatible, but with reduced functionality). Please use either one or another, but not both at the same time.**
+
 A somewhat faster replacement for a subset of [std.stdio](https://dlang.org/library/std/stdio.html)
 functionality from the standard D language library. The primary purpose is to speed up
 stdin/stdout as much as possible for optimal use on the competitive programming platforms,
