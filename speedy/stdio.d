@@ -371,25 +371,161 @@ void writeln(T...)(T args)
 
 ///////////////////////////////////////////////////////////////////////////////
 
-import std.format;
+import std.format, std.range, std.exception, std.algorithm, std.traits;
+
+struct FmtToken
+{
+    char spec;
+    byte compound;
+    string separator;
+    string suffix;
+}
+
+struct ParsedFmt
+{
+    string prefix;
+    FmtToken[] tokens;
+}
+
+ParsedFmt parsefmt(string fmt)
+{
+    string scan_until_spec(ref string fmt)
+    {
+        string prefix = "";
+        while (!fmt.empty)
+        {
+            auto tmp = fmt.find('%');
+            if (tmp.empty)
+            {
+                prefix ~= fmt;
+                fmt = fmt[$ .. $];
+                return prefix;
+            }
+            else
+            {
+                enforce(tmp.length >= 2);
+                if (tmp[1] == '%')
+                {
+                    prefix ~= fmt[0 .. fmt.length - tmp.length + 1];
+                    fmt = fmt[fmt.length - tmp.length + 2 .. $];
+                }
+                else
+                {
+                    prefix ~= fmt[0 .. fmt.length - tmp.length];
+                    fmt = fmt[fmt.length - tmp.length .. $];
+                    return prefix;
+                }
+            }
+        }
+        return prefix;
+    }
+
+    ParsedFmt result;
+    result.prefix = scan_until_spec(fmt);
+    while (!fmt.empty)
+    {
+        enforce(fmt[0] == '%');
+        enforce(fmt.length >= 2);
+        if (fmt[1] == '(')
+        {
+            enforce(fmt.length >= 6 && fmt[2] == '%'); // at least %(%s%)
+            byte spec = fmt[3];
+            fmt = fmt[4 .. $];
+            string separator = scan_until_spec(fmt);
+            enforce(fmt.length >= 2 && fmt[1] == ')');
+            fmt = fmt[2 .. $];
+            string suffix = scan_until_spec(fmt);
+            result.tokens ~= FmtToken(spec, 1, separator, suffix);
+        }
+        else
+        {
+            byte spec = fmt[1];
+            fmt = fmt[2 .. $];
+            string suffix = scan_until_spec(fmt);
+            result.tokens ~= FmtToken(spec, 0, "", suffix);
+        }
+    }
+    return result;
+}
 
 private struct SpeedyWriterSink
 {
     void put(T)(T arg) { SpeedyWriter.put(arg); }
 }
 
+// Similar to checkFormatException from Phobos, but only accepts a small
+// subset of possible formats.
+enum isSpeedyCompatibleFormat(alias fmt, Args...) =
+{
+    try
+    {
+        void tassert(T)(T cond) {
+            if (!cond)
+                throw new Exception("");
+        }
+        static immutable xfmt = parsefmt(fmt);
+        tassert(xfmt.tokens.length == Args.length);
+        foreach (i, arg; Args.init)
+        {
+            if (xfmt.tokens[i].compound && (isInputRange!(typeof(arg)) || isArray!(typeof(arg))))
+            {
+                if (isIntegral!(ElementType!(typeof(arg))))
+                    tassert(!find("ds", xfmt.tokens[i].spec).empty);
+                else if (is(ElementType!(typeof(arg) == string)))
+                    tassert(!find("s", xfmt.tokens[i].spec).empty);
+                else
+                    tassert(false);
+            }
+            else if (!xfmt.tokens[i].compound)
+            {
+                if (isIntegral!(typeof(arg)))
+                    tassert(!find("ds", xfmt.tokens[i].spec).empty);
+                else if (is(typeof(arg) == string))
+                    tassert(!find("s", xfmt.tokens[i].spec).empty);
+                else
+                    tassert(false);
+            }
+            else
+            {
+                tassert(false);
+            }
+
+        }
+    }
+    catch (Exception e)
+        return false;
+    return true;
+}();
+
+private SpeedyWriterSink s;
+
+private void writef_speedy(alias fmt, A...)(A args)
+{
+    static immutable xfmt = parsefmt(fmt);
+    SpeedyWriter.put(xfmt.prefix);
+    foreach (i, arg; args)
+    {
+        static if (xfmt.tokens[i].compound)
+            SpeedyWriter.put_with_joiner(arg, xfmt.tokens[i].separator);
+        else
+            SpeedyWriter.put(arg);
+        SpeedyWriter.put(xfmt.tokens[i].suffix);
+    }
+}
+
 void writef(alias fmt, A...)(A args)
 {
     SpeedyWriterLock.lock();
-    SpeedyWriterSink s;
-    formattedWrite!fmt(s, args);
+    static if (isSpeedyCompatibleFormat!(fmt, A))
+        writef_speedy!fmt(args);
+    else
+        formattedWrite!fmt(s, args);
     SpeedyWriterLock.unlock();
 }
 
 void writef(Char, A...)(in Char[] fmt, A args)
 {
     SpeedyWriterLock.lock();
-    SpeedyWriterSink s;
     formattedWrite(s, fmt, args);
     SpeedyWriterLock.unlock();
 }
@@ -397,8 +533,10 @@ void writef(Char, A...)(in Char[] fmt, A args)
 void writefln(alias fmt, A...)(A args)
 {
     SpeedyWriterLock.lock();
-    SpeedyWriterSink s;
-    formattedWrite!fmt(s, args);
+    static if (isSpeedyCompatibleFormat!(fmt, A))
+        writef_speedy!fmt(args);
+    else
+        formattedWrite!fmt(s, args);
     SpeedyWriter.put('\n');
     SpeedyWriterLock.unlock();
 }
@@ -448,6 +586,18 @@ void writefln(Char, A...)(in Char[] fmt, A args)
         "-9223372036854775808\n9223372036854775807\n" ~
         "0\n18446744073709551615\n";
     assert(SpeedyWriter.buffer_contains(expected_data));
+}
+
+@nogc unittest
+{
+    SpeedyWriter.silenced = true;
+    SpeedyWriter.flush;
+    int[3] a = [1, 2, 3];
+    writefln!"%d"(123);
+    writefln!"hello %d %(%d %% %)"(123, a);
+    writefln!"%(%s, %)"(a);
+    auto expected_data = "123\nhello 123 1 % 2 % 3\n1, 2, 3\n";
+    assert(SpeedyWriter.buffer_contains(expected_data), "writefln");
 }
 
 unittest
