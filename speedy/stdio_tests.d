@@ -72,3 +72,12 @@ unittest
     auto expected_data = "12 34 56 78";
     assert(stdout.buffer_contains(expected_data), "writef failed");
 }
+
+unittest
+{
+    stdout.silenced = true;
+    stdout.flush;
+    string[3] s = ["abc", "x", "y"];
+    writefln!"%(%s %)"(s);
+    assert(stdout.buffer_contains("\"abc\" \"x\" \"y\"\n"));
+}

@@ -42,11 +42,41 @@ import speedy.stdio;
 @nogc unittest
 {
     stdout.silenced = true;
-    stdout.flush;
     int[3] a = [1, 2, 3];
+    int[2][3] b = [[1, 0], [2, -3], [3, 8]];
+
+    stdout.flush;
+    writef!"%d"(123);
+    assert(stdout.buffer_contains("123"));
+
+    stdout.flush;
     writefln!"%d"(123);
+    assert(stdout.buffer_contains("123\n"));
+
+    stdout.flush;
+    writefln!"%s"(a);
+    assert(stdout.buffer_contains("[1, 2, 3]\n"));
+
+    stdout.flush;
+    writefln!"%(%s %)"(b);
+    assert(stdout.buffer_contains("[1, 0] [2, -3] [3, 8]\n"));
+
+    stdout.flush;
+    writef!"%s %(%s%)"(a, b);
+    assert(stdout.buffer_contains("[1, 2, 3] [1, 0][2, -3][3, 8]"));
+
+    stdout.flush;
+    writef!"%s %-(%s%)"(a, b);
+    assert(stdout.buffer_contains("[1, 2, 3] [1, 0][2, -3][3, 8]"));
+
+    stdout.flush;
+    string[3] s = ["abc", "x", "y"];
+    writefln!"%-(%s %)"(s);
+    assert(stdout.buffer_contains("abc x y\n"));
+
+    stdout.flush;
     writefln!"hello %d %(%d %% %)"(123, a);
     writefln!"%(%s, %)"(a);
-    auto expected_data = "123\nhello 123 1 % 2 % 3\n1, 2, 3\n";
+    auto expected_data = "hello 123 1 % 2 % 3\n1, 2, 3\n";
     assert(stdout.buffer_contains(expected_data), "writefln");
 }

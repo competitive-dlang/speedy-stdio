@@ -348,7 +348,7 @@ private static shared SpinLock SpeedyWriterLock;
 struct FmtToken
 {
     char spec;
-    byte compound;
+    byte compound; /* 0 - not a compound, 1 - escaped, 2 - non-escaped */
     string separator;
     string suffix;
 }
@@ -359,6 +359,14 @@ struct ParsedFmt
     FmtToken[] tokens;
 }
 
+/*
+ * This is a minimalistic parser, which recognizes the following patterns:
+ *  /%%/                 - escaped '%' character
+ *  /%d/                 - decimal number
+ *  /%s/                 - string
+ *  /%\(%[ds][^%]*%\)/   - escaped compound
+ *  /%\-\(%[ds][^%]*%\)/ - non-escaped compound
+ */
 ParsedFmt parsefmt(string fmt)
 {
     string scan_until_spec(ref string fmt)
@@ -396,18 +404,23 @@ ParsedFmt parsefmt(string fmt)
     result.prefix = scan_until_spec(fmt);
     while (!fmt.empty)
     {
-        enforce(fmt[0] == '%');
-        enforce(fmt.length >= 2);
-        if (fmt[1] == '(')
+        enforce(fmt.length >= 2 && fmt[0] == '%');
+        if (fmt[1] == '(' || (fmt.length >= 3 && fmt[1] == '-' && fmt[2] == '('))
         {
+            byte compound = 1;
+            if (fmt[1] == '-')
+            {
+                compound = 2;
+                fmt = fmt[1 .. $];
+            }
             enforce(fmt.length >= 6 && fmt[2] == '%'); // at least %(%s%)
-            byte spec = fmt[3];
+            char spec = fmt[3];
             fmt = fmt[4 .. $];
             string separator = scan_until_spec(fmt);
             enforce(fmt.length >= 2 && fmt[1] == ')');
             fmt = fmt[2 .. $];
             string suffix = scan_until_spec(fmt);
-            result.tokens ~= FmtToken(spec, 1, separator, suffix);
+            result.tokens ~= FmtToken(spec, compound, separator, suffix);
         }
         else
         {
@@ -436,11 +449,20 @@ enum isSpeedyCompatibleFormat(alias fmt, Args...) =
         tassert(xfmt.tokens.length == Args.length);
         foreach (i, arg; Args.init)
         {
-            if (xfmt.tokens[i].compound && (isInputRange!(typeof(arg)) || isArray!(typeof(arg))))
+            if (xfmt.tokens[i].compound == 1 && (isInputRange!(typeof(arg)) || isArray!(typeof(arg))))
             {
                 if (isIntegral!(ElementType!(typeof(arg))))
                     tassert(!find("ds", xfmt.tokens[i].spec).empty);
-                else if (is(ElementType!(typeof(arg) == string)))
+                else if (SpeedyWriter.isNogcCompatibleNested!(ElementType!(typeof(arg))))
+                    tassert(!find("s", xfmt.tokens[i].spec).empty);
+                else
+                    tassert(false);
+            }
+            else if (xfmt.tokens[i].compound == 2 && (isInputRange!(typeof(arg)) || isArray!(typeof(arg))))
+            {
+                if (isIntegral!(ElementType!(typeof(arg))))
+                    tassert(!find("ds", xfmt.tokens[i].spec).empty);
+                else if (SpeedyWriter.isNogcCompatible!(ElementType!(typeof(arg))))
                     tassert(!find("s", xfmt.tokens[i].spec).empty);
                 else
                     tassert(false);
@@ -449,7 +471,7 @@ enum isSpeedyCompatibleFormat(alias fmt, Args...) =
             {
                 if (isIntegral!(typeof(arg)))
                     tassert(!find("ds", xfmt.tokens[i].spec).empty);
-                else if (is(typeof(arg) == string))
+                else if (SpeedyWriter.isNogcCompatible!(typeof(arg)))
                     tassert(!find("s", xfmt.tokens[i].spec).empty);
                 else
                     tassert(false);
