@@ -97,6 +97,15 @@ package template SpeedyWriter(SpeedySafety safety)
     }
     else static if (safety == SpeedySafety.Safe)
     {
+        version (Posix)
+        {
+            import core.sys.posix.stdio;
+        }
+        version (Windows)
+        {
+            alias flockfile = _lock_file;
+            alias funlockfile = _unlock_file;
+        }
         shared static FILE* fp;
         shared static this() @trusted
         {
@@ -109,7 +118,7 @@ package template SpeedyWriter(SpeedySafety safety)
             if (!flocked)
             {
                 flocked = true;
-                FLOCK(fp);
+                flockfile(fp);
             }
             fwrite(cast(void*) buffer.ptr, 1, buffer.length, fp);
         }
@@ -169,7 +178,7 @@ package template SpeedyWriter(SpeedySafety safety)
             if (flocked)
             {
                 flush();
-                FUNLOCK(fp);
+                funlockfile(fp);
                 flocked = false;
             }
             else
