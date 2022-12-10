@@ -1,11 +1,9 @@
-module speedy.stdio_tests;
+module speedy.fakestdio_tests;
 @safe:
-
-import speedy.stdio;
+import speedy.fakestdio;
 
 unittest
 {
-    stdout.silenced = true;
     stdout.flush;
     string[2] a = ["abc", "xyz"];
     writeln(a);
@@ -15,7 +13,6 @@ unittest
 
 unittest
 {
-    stdout.silenced = true;
     stdout.flush;
     wchar c = 'ß';
     dstring s = "ÄÖÜ";
@@ -26,7 +23,6 @@ unittest
 
 unittest
 {
-    stdout.silenced = true;
     stdout.flush;
     wchar[2] a;
     a[0] = 'ß';
@@ -44,28 +40,14 @@ unittest
 {
     import std.typecons : tuple;
 
-    stdout.silenced = true;
     stdout.flush;
     writeln(tuple(int.min, int.max), ' ', int.min, ' ', int.max);
     auto expected_data = "Tuple!(int, int)(-2147483648, 2147483647) -2147483648 2147483647\n";
     assert(stdout.buffer_contains(expected_data));
 }
 
-@system unittest
-{
-    import std.parallelism, std.range;
-    stdout.silenced = true;
-    stdout.flush;
-    int n = 1000;
-    foreach (i; taskPool.parallel(iota(n)))
-       writeln('[', ']');
-    auto expected_data = "[]\n".replicate(n);
-    assert(stdout.buffer_contains(expected_data), "multithreaded test");
-}
-
 unittest
 {
-    stdout.silenced = true;
     stdout.flush;
     writef!"%d %d"(12, 34);
     writef(" %d %d", 56, 78);
@@ -75,7 +57,6 @@ unittest
 
 unittest
 {
-    stdout.silenced = true;
     stdout.flush;
     string[3] s = ["abc", "x", "y"];
     writefln!"%(%s %)"(s);

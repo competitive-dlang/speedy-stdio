@@ -3,6 +3,9 @@
 	"description": "A faster replacement for a subset of std.stdio",
 	"authors": ["Siarhei Siamashka"],
 	"license": "BSL-1.0",
-	"sourceFiles": ["speedy/stdio.d", "speedy/stdio_tests_nogc.d", "speedy/stdio_tests.d"],
+	"sourceFiles": ["speedy/stdio.d",
+			"speedy/fakestdio.d",
+			"speedy/fakestdio_tests.d",
+			"speedy/fakestdio_tests_nogc.d"],
 	"importPaths": ["."]
 }

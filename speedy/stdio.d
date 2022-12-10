@@ -35,9 +35,14 @@ public import std.stdio;
 import std.range, std.format, std.algorithm, std.traits, core.bitop;
 import std.exception;
 
-private struct SpeedyWriter
+private enum SpeedySafety
 {
+    Safe,
+    Unsafe
+}
 
+package template SpeedyWriter(SpeedySafety safety)
+{
     private static bool isChar(T)()
     {
         return isSomeChar!T && T.sizeof == 1;
@@ -68,20 +73,52 @@ private struct SpeedyWriter
             return false;
     }
 
-    shared static char[BUFSIZE] outbuf;
-    shared static ptrdiff_t outbuf_size = 0;
+    static if (safety == SpeedySafety.Safe)
+    {
+        static char[BUFSIZE] outbuf;
+        static ptrdiff_t outbuf_size = 0;
+    }
+    else
+    {
+        shared static char[BUFSIZE] outbuf;
+        shared static ptrdiff_t outbuf_size = 0;
+    }
 
-    // Writing to the actual STDOUT can be suppressed if this variable is set
-    // to 'true'
-    shared static bool silenced = false;
+    version (unittest)
+    {
+        static void rawWriteStdout()(char[] buffer)
+        {
+        }
 
-    version (Posix)
+        static bool buffer_contains()(string expected_data) @trusted
+        {
+            return expected_data == cast(string) outbuf[0 .. outbuf_size];
+        }
+    }
+    else static if (safety == SpeedySafety.Safe)
+    {
+        shared static FILE* fp;
+        shared static this() @trusted
+        {
+            fp = std.stdio.stdout.getFP;
+        }
+
+        static bool flocked;
+        static void rawWriteStdout()(char[] buffer) @trusted
+        {
+            if (!flocked)
+            {
+                flocked = true;
+                FLOCK(fp);
+            }
+            fwrite(cast(void*) buffer.ptr, 1, buffer.length, fp);
+        }
+    }
+    else version (Posix)
     {
 
-        static void rawWriteStdout(char[] buffer) @nogc @trusted
+        static void rawWriteStdout()(char[] buffer) @trusted
         {
-            if (silenced)
-                return;
             import core.sys.posix.unistd : write, STDOUT_FILENO;
             import core.sys.posix.fcntl, core.stdc.errno;
 
@@ -97,14 +134,10 @@ private struct SpeedyWriter
             }
         }
     }
-
-    version (Windows)
+    else version (Windows)
     {
-
-        static void rawWriteStdout(char[] buffer) @nogc @trusted
+        static void rawWriteStdout()(char[] buffer) @trusted
         {
-            if (silenced)
-                return;
             import core.sys.windows.windows;
 
             auto h = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -122,11 +155,30 @@ private struct SpeedyWriter
         }
     }
 
-    static flush() @nogc @trusted
+    static void flush()() @trusted
     {
         if (outbuf_size > 0)
             rawWriteStdout(cast(char[]) outbuf[0 .. outbuf_size]);
         outbuf_size = 0;
+    }
+
+    static void done()() @trusted
+    {
+        static if (safety == SpeedySafety.Safe)
+        {
+            if (flocked)
+            {
+                flush();
+                FUNLOCK(fp);
+                flocked = false;
+            }
+            else
+            {
+                flocked = true;
+                flush();
+                flocked = false;
+            }
+        }
     }
 
     shared static ~this()
@@ -134,7 +186,7 @@ private struct SpeedyWriter
         flush();
     }
 
-    static void put(T)(T ch) @nogc @trusted if (isChar!T)
+    static void put(T)(T ch) @trusted if (isChar!T)
     {
         if (outbuf_size < outbuf.sizeof)
         {
@@ -149,7 +201,7 @@ private struct SpeedyWriter
         }
     }
 
-    static void ensure_outbuf_capacity(ptrdiff_t size) @nogc @trusted
+    static void ensure_outbuf_capacity()(ptrdiff_t size) @trusted
     {
         if (outbuf_size + size > outbuf.sizeof)
         {
@@ -162,7 +214,7 @@ private struct SpeedyWriter
     // Compute the number of digits of an integer quickly. Public domain code from Daniel Lemire:
     //  * https://github.com/lemire/Code-used-on-Daniel-Lemire-s-blog
     //  * https://lemire.me/blog/2021/06/03/computing-the-number-of-digits-of-an-integer-even-faster/
-    static int fast_digit_count(uint x) @nogc
+    static int fast_digit_count()(uint x)
     {
         static immutable table = [
             4294967296, 8589934582, 8589934582, 8589934582, 12884901788,
@@ -177,7 +229,7 @@ private struct SpeedyWriter
         return (x + table[bsr(x)]) >> 32;
     }
 
-    static int fast_digit_count(ulong x) @nogc
+    static int fast_digit_count()(ulong x)
     {
         static immutable table = [
             4503599627370495, 9007199254740982, 9007199254740982,
@@ -226,7 +278,7 @@ private struct SpeedyWriter
         return result;
     }();
 
-    static void put(T)(T val) @nogc if (isIntegral!T)
+    static void put(T)(T val) if (isIntegral!T)
     {
         if (val == 0)
         {
@@ -277,7 +329,7 @@ private struct SpeedyWriter
         outbuf_size = outbuf_size + ndigits;
     }
 
-    static void put(string str) @nogc @trusted
+    static void put()(string str) @trusted
     {
         while (str.length > 0)
         {
@@ -307,7 +359,7 @@ private struct SpeedyWriter
         }
     }
 
-    static void put_with_joiner(Range, T)(Range r, T sep) @nogc
+    static void put_with_joiner(Range, T)(Range r, T sep)
             if ((isInputRange!Range || isArray!Range) && (isString!T || isChar!T))
     {
         bool first = true;
@@ -330,22 +382,144 @@ private struct SpeedyWriter
 
         put(val.to!string);
     }
-}
 
-// From: https://github.com/dlang/phobos/blob/master/std/concurrency.d
-private static shared struct SpinLock
-{
-    import core.atomic, core.thread;
-    void lock() @nogc @trusted { while (!cas(&locked, false, true)) { Thread.yield(); } }
-    void unlock() @nogc { atomicStore!(MemoryOrder.rel)(locked, false); }
-    bool locked;
-}
+    private struct SpeedyWriterSink
+    {
+        void put(T)(T arg)
+        {
+            SpeedyWriter!safety.put(arg);
+        }
+    }
 
-private static shared SpinLock SpeedyWriterLock;
+    static SpeedyWriterSink s;
+
+    static void writef_speedy(alias fmt, A...)(A args)
+    {
+        static immutable xfmt = parsefmt(fmt);
+        put(xfmt.prefix);
+        foreach (i, arg; args)
+        {
+            static if (xfmt.tokens[i].compound)
+                put_with_joiner(arg, xfmt.tokens[i].separator);
+            else
+                put(arg);
+            put(xfmt.tokens[i].suffix);
+        }
+    }
+
+    public static void writef(alias fmt, A...)(A args)
+    {
+        static if (isSpeedyCompatibleFormat!(fmt, A))
+            writef_speedy!fmt(args);
+        else
+            formattedWrite!fmt(s, args);
+        done();
+    }
+
+    public static void writef(Char, A...)(in Char[] fmt, A args)
+    {
+        formattedWrite(s, fmt, args);
+        done();
+    }
+
+    public static void writefln(alias fmt, A...)(A args)
+    {
+        static if (isSpeedyCompatibleFormat!(fmt, A))
+            writef_speedy!fmt(args);
+        else
+            formattedWrite!fmt(s, args);
+        put('\n');
+        done();
+    }
+
+    public static void writefln(Char, A...)(in Char[] fmt, A args)
+    {
+        formattedWrite(s, fmt, args);
+        put('\n');
+        done();
+    }
+
+    public static void write(T...)(T args)
+    {
+        foreach (arg; args)
+            static if (isNogcCompatible!(typeof(arg)))
+                put(arg);
+            else
+                put_gc(arg);
+        done();
+    }
+
+    public static void writeln(T...)(T args)
+    {
+        foreach (arg; args)
+            static if (isNogcCompatible!(typeof(arg)))
+                put(arg);
+            else
+                put_gc(arg);
+        put('\n');
+        done();
+    }
+
+    // Similar to checkFormatException from Phobos, but only accepts a small
+    // subset of possible formats.
+    enum isSpeedyCompatibleFormat(alias fmt, Args...) =
+    {
+        try
+        {
+            void tassert(T)(T cond)
+            {
+                if (!cond)
+                    throw new Exception("");
+            }
+
+            static immutable xfmt = parsefmt(fmt);
+            tassert(xfmt.tokens.length == Args.length);
+            foreach (i, arg; Args.init)
+            {
+                if (xfmt.tokens[i].compound == 1 && (isInputRange!(typeof(arg)) || isArray!(typeof(arg))))
+                {
+                    if (isIntegral!(ElementType!(typeof(arg))))
+                        tassert(!find("ds", xfmt.tokens[i].spec).empty);
+                    else if (isNogcCompatibleNested!(ElementType!(typeof(arg))))
+                        tassert(!find("s", xfmt.tokens[i].spec).empty);
+                    else
+                        tassert(false);
+                }
+                else if (xfmt.tokens[i].compound == 2 && (isInputRange!(typeof(arg)) || isArray!(typeof(arg))))
+                {
+                    if (isIntegral!(ElementType!(typeof(arg))))
+                        tassert(!find("ds", xfmt.tokens[i].spec).empty);
+                    else if (isNogcCompatible!(ElementType!(typeof(arg))))
+                        tassert(!find("s", xfmt.tokens[i].spec).empty);
+                    else
+                        tassert(false);
+                }
+                else if (!xfmt.tokens[i].compound)
+                {
+                    if (isIntegral!(typeof(arg)))
+                        tassert(!find("ds", xfmt.tokens[i].spec).empty);
+                    else if (isNogcCompatible!(typeof(arg)))
+                        tassert(!find("s", xfmt.tokens[i].spec).empty);
+                    else
+                        tassert(false);
+                }
+                else
+                {
+                    tassert(false);
+                }
+
+            }
+        }
+        catch (Exception e)
+            return false;
+        return true;
+    }();
+
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 
-struct FmtToken
+private struct FmtToken
 {
     char spec;
     byte compound; /* 0 - not a compound, 1 - escaped, 2 - non-escaped */
@@ -353,7 +527,7 @@ struct FmtToken
     string suffix;
 }
 
-struct ParsedFmt
+private struct ParsedFmt
 {
     string prefix;
     FmtToken[] tokens;
@@ -367,7 +541,7 @@ struct ParsedFmt
  *  /%\(%[ds][^%]*%\)/   - escaped compound
  *  /%\-\(%[ds][^%]*%\)/ - non-escaped compound
  */
-ParsedFmt parsefmt(string fmt)
+private ParsedFmt parsefmt(string fmt)
 {
     string scan_until_spec(ref string fmt)
     {
@@ -433,168 +607,18 @@ ParsedFmt parsefmt(string fmt)
     return result;
 }
 
-// Similar to checkFormatException from Phobos, but only accepts a small
-// subset of possible formats.
-enum isSpeedyCompatibleFormat(alias fmt, Args...) =
+alias write = SpeedyWriter!(SpeedySafety.Safe).write;
+alias writeln = SpeedyWriter!(SpeedySafety.Safe).writeln;
+alias writef = SpeedyWriter!(SpeedySafety.Safe).writef;
+alias writefln = SpeedyWriter!(SpeedySafety.Safe).writefln;
+
+alias unsafe_write = SpeedyWriter!(SpeedySafety.Unsafe).write;
+alias unsafe_writeln = SpeedyWriter!(SpeedySafety.Unsafe).writeln;
+alias unsafe_writef = SpeedyWriter!(SpeedySafety.Unsafe).writef;
+alias unsafe_writefln = SpeedyWriter!(SpeedySafety.Unsafe).writefln;
+alias unsafe_stdout_flush = SpeedyWriter!(SpeedySafety.Unsafe).flush;
+
+version (unittest)
 {
-    try
-    {
-        void tassert(T)(T cond)
-        {
-            if (!cond)
-                throw new Exception("");
-        }
-
-        static immutable xfmt = parsefmt(fmt);
-        tassert(xfmt.tokens.length == Args.length);
-        foreach (i, arg; Args.init)
-        {
-            if (xfmt.tokens[i].compound == 1 && (isInputRange!(typeof(arg)) || isArray!(typeof(arg))))
-            {
-                if (isIntegral!(ElementType!(typeof(arg))))
-                    tassert(!find("ds", xfmt.tokens[i].spec).empty);
-                else if (SpeedyWriter.isNogcCompatibleNested!(ElementType!(typeof(arg))))
-                    tassert(!find("s", xfmt.tokens[i].spec).empty);
-                else
-                    tassert(false);
-            }
-            else if (xfmt.tokens[i].compound == 2 && (isInputRange!(typeof(arg)) || isArray!(typeof(arg))))
-            {
-                if (isIntegral!(ElementType!(typeof(arg))))
-                    tassert(!find("ds", xfmt.tokens[i].spec).empty);
-                else if (SpeedyWriter.isNogcCompatible!(ElementType!(typeof(arg))))
-                    tassert(!find("s", xfmt.tokens[i].spec).empty);
-                else
-                    tassert(false);
-            }
-            else if (!xfmt.tokens[i].compound)
-            {
-                if (isIntegral!(typeof(arg)))
-                    tassert(!find("ds", xfmt.tokens[i].spec).empty);
-                else if (SpeedyWriter.isNogcCompatible!(typeof(arg)))
-                    tassert(!find("s", xfmt.tokens[i].spec).empty);
-                else
-                    tassert(false);
-            }
-            else
-            {
-                tassert(false);
-            }
-
-        }
-    }
-    catch (Exception e)
-        return false;
-    return true;
-}();
-
-private struct SpeedyStdout
-{
-    version (unittest)
-    {
-        static void silenced()(bool newval)
-        {
-            SpeedyWriter.silenced = newval;
-        }
-
-        static bool buffer_contains()(string expected_data) @trusted
-        {
-            string buf = cast(string) SpeedyWriter.outbuf[0 .. SpeedyWriter.outbuf_size];
-            return expected_data == buf;
-        }
-    }
-
-    private struct SpeedyWriterSink
-    {
-        void put(T)(T arg) { SpeedyWriter.put(arg); }
-    }
-
-    static private SpeedyWriterSink s;
-
-    static void flush()()
-    {
-        SpeedyWriter.flush;
-    }
-
-    static private void writef_speedy(alias fmt, A...)(A args)
-    {
-        static immutable xfmt = parsefmt(fmt);
-        SpeedyWriter.put(xfmt.prefix);
-        foreach (i, arg; args)
-        {
-            static if (xfmt.tokens[i].compound)
-                SpeedyWriter.put_with_joiner(arg, xfmt.tokens[i].separator);
-            else
-                SpeedyWriter.put(arg);
-            SpeedyWriter.put(xfmt.tokens[i].suffix);
-        }
-    }
-
-    static void writef(alias fmt, A...)(A args)
-    {
-        SpeedyWriterLock.lock();
-        static if (isSpeedyCompatibleFormat!(fmt, A))
-            writef_speedy!fmt(args);
-        else
-            formattedWrite!fmt(s, args);
-        SpeedyWriterLock.unlock();
-    }
-
-    static void writef(Char, A...)(in Char[] fmt, A args)
-    {
-        SpeedyWriterLock.lock();
-        formattedWrite(s, fmt, args);
-        SpeedyWriterLock.unlock();
-    }
-
-    static void writefln(alias fmt, A...)(A args)
-    {
-        SpeedyWriterLock.lock();
-        static if (isSpeedyCompatibleFormat!(fmt, A))
-            writef_speedy!fmt(args);
-        else
-            formattedWrite!fmt(s, args);
-        SpeedyWriter.put('\n');
-        SpeedyWriterLock.unlock();
-    }
-
-    static void writefln(Char, A...)(in Char[] fmt, A args)
-    {
-        SpeedyWriterLock.lock();
-        SpeedyWriterSink s;
-        formattedWrite(s, fmt, args);
-        SpeedyWriter.put('\n');
-        SpeedyWriterLock.unlock();
-    }
-
-    static void write(T...)(T args)
-    {
-        SpeedyWriterLock.lock();
-        foreach (arg; args)
-            static if (SpeedyWriter.isNogcCompatible!(typeof(arg)))
-                SpeedyWriter.put(arg);
-            else
-                SpeedyWriter.put_gc(arg);
-        SpeedyWriterLock.unlock();
-    }
-
-    static void writeln(T...)(T args)
-    {
-        SpeedyWriterLock.lock();
-        foreach (arg; args)
-            static if (SpeedyWriter.isNogcCompatible!(typeof(arg)))
-                SpeedyWriter.put(arg);
-            else
-                SpeedyWriter.put_gc(arg);
-        SpeedyWriter.put('\n');
-        SpeedyWriterLock.unlock();
-    }
-
+    alias unsafe_stdout_buffer_contains = SpeedyWriter!(SpeedySafety.Unsafe).buffer_contains;
 }
-
-alias write = SpeedyStdout.write;
-alias writeln = SpeedyStdout.writeln;
-alias writef = SpeedyStdout.writef;
-alias writefln = SpeedyStdout.writefln;
-
-SpeedyStdout stdout;

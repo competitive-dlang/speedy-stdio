@@ -1,11 +1,9 @@
-module speedy.stdio_tests_nogc;
+module speedy.fakestdio_tests_nogc;
 @safe @nogc:
-
-import speedy.stdio;
+import speedy.fakestdio;
 
 @nogc unittest
 {
-    stdout.silenced = true;
     stdout.flush;
     writeln(1);
     write(2);
@@ -23,7 +21,6 @@ import speedy.stdio;
 
 @nogc unittest
 {
-    stdout.silenced = true;
     stdout.flush;
     writeln(int.min);
     writeln(int.max);
@@ -41,7 +38,6 @@ import speedy.stdio;
 
 @nogc unittest
 {
-    stdout.silenced = true;
     int[3] a = [1, 2, 3];
     int[2][3] b = [[1, 0], [2, -3], [3, 8]];
 
