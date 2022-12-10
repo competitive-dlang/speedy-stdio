@@ -33,3 +33,11 @@ jobs:
       - name: Run 32-bit tests
         if: matrix.os == 'windows-latest'
         run: dub test -a x86
+
+      - name: Run mtfuzzer
+        if: matrix.dc == 'dmd-latest'
+        run: |
+          dmd -O -release tests/mtfuzzer.d speedy/stdio.d speedy/fakestdio.d
+          ./mtfuzzer speedy.stdio 1000 | ./mtfuzzer checker 1000
+          ./mtfuzzer mixed 1000 | ./mtfuzzer checker 1000
+          ./mtfuzzer speedy.fakestdio 100 | ./mtfuzzer checker 100

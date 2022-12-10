@@ -41,3 +41,10 @@ jobs:
         env:
           DC: ${{ matrix.dc }}
         run: dub test -a x86_64 --compiler=${{ matrix.dc }}
+
+      - name: Run mtfuzzer
+        run: |
+          ${{ matrix.dc }} -O2 -frelease -o mtfuzzer tests/mtfuzzer.d speedy/stdio.d speedy/fakestdio.d
+          ./mtfuzzer speedy.stdio 1000 | ./mtfuzzer checker 1000
+          ./mtfuzzer mixed 1000 | ./mtfuzzer checker 1000
+          ./mtfuzzer speedy.fakestdio 100 | ./mtfuzzer checker 100
