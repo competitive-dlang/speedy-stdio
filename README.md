@@ -82,7 +82,7 @@ on a 64-bit Linux system with Intel Core i7-860 @2.8GHz processor produces the
 following results (redirected to /dev/null):
 
 | used module      | test code          | repeats   | LDC 1.30.0 | DMD 2.099.1 |
-|:----------------:|:------------------:|:---------:| ----------:| -----------:|
+|:----------------:|:------------------:|:---------:|:----------:|:-----------:|
 | std.stdio        | 99 bottles of beer | 100000    |    17.874s |     34.777s |
 | speedy.stdio     | 99 bottles of beer | 100000    |     4.749s |      9.132s |
 | speedy.fakestdio | 99 bottles of beer | 100000    |     1.749s |      5.403s |
@@ -103,7 +103,7 @@ void main() {
 ```
 
 | used module      | test code       | compiler   | LDC 1.30.0 |
-|:----------------:|:---------------:|:----------:| ----------:|
+|:----------------:|:---------------:|:----------:|:----------:|
 | std.stdio        | count to 100M   | LDC 1.30.0 |    17.520s |
 | speedy.stdio     | count to 100M   | LDC 1.30.0 |     2.349s |
 | speedy.fakestdio | count to 100M   | LDC 1.30.0 |     1.809s |
