@@ -1,6 +1,6 @@
 # speedy-stdio
 
-**Note: it's a very new library in its eary days and may contain bugs, bugreports are welcome!**
+**Note: it's a very new library in its eary days and may contain bugs. Bugreports are welcome!**
 
 Do you have a program implemented in D programming language, which somehow needs to read and parse gigantic
 amounts of text from *stdin* and then write gigantic amounts of text to *stdout*? If the answer is "yes",
@@ -78,14 +78,14 @@ $ dub build --build release --single --compiler=ldc2 bottles.d
 ## Performance
 
 Changing "repeats" to 100000 in the "99 bottles of beer" example above and running it
-on a Linux system with Intel Core i7-860 @2.8GHz processor and LDC 1.30.0 compiler
-produces the following results (redirected to /dev/null):
+on a 64-bit Linux system with Intel Core i7-860 @2.8GHz processor produces the
+following results (redirected to /dev/null):
 
-| used module      | test code          | repeats       | compiler   | time    |
-| ---------------- | ------------------ | ------------- | ---------- | -------:|
-| std.stdio        | 99 bottles of beer | 100000        | LDC 1.30.0 | 17.874s |
-| speedy.stdio     | 99 bottles of beer | 100000        | LDC 1.30.0 |  4.749s |
-| speedy.fakestdio | 99 bottles of beer | 100000        | LDC 1.30.0 |  1.749s |
+| used module      | test code          | repeats   | LDC 1.30.0 | DMD 2.099.1 |
+|:----------------:|:------------------:|:---------:| ----------:| -----------:|
+| std.stdio        | 99 bottles of beer | 100000    |    17.874s |     34.777s |
+| speedy.stdio     | 99 bottles of beer | 100000    |     4.749s |      9.132s |
+| speedy.fakestdio | 99 bottles of beer | 100000    |     1.749s |      5.403s |
 
 Another benchmark is just printing numbers from 0 to 100M on each line (redirected to /dev/null):
 
@@ -102,8 +102,8 @@ void main() {
 }
 ```
 
-| used module      | test code          | compiler   | time    |
-| ---------------- | ------------------ | ---------- | -------:|
-| std.stdio        | count to 100M      | LDC 1.30.0 | 17.520s |
-| speedy.stdio     | count to 100M      | LDC 1.30.0 |  2.349s |
-| speedy.fakestdio | count to 100M      | LDC 1.30.0 |  1.809s |
+| used module      | test code       | compiler   | LDC 1.30.0 |
+|:----------------:|:---------------:|:----------:| ----------:|
+| std.stdio        | count to 100M   | LDC 1.30.0 |    17.520s |
+| speedy.stdio     | count to 100M   | LDC 1.30.0 |     2.349s |
+| speedy.fakestdio | count to 100M   | LDC 1.30.0 |     1.809s |
