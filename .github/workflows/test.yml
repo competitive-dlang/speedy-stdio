@@ -1,0 +1,39 @@
+name: playground
+
+on:
+  push:
+    branches:
+      - benchmark
+
+jobs:
+  playground_update:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: checkout playground
+        uses: actions/checkout@v3
+          with:
+            repository: ssvb/speedy-playground
+            ref: 'main'
+            path: './playground'
+            token: ${{ secrets.PLAYGROUND }}
+
+      - name: Install D compiler
+        uses: dlang-community/setup-dlang@v1
+        with:
+          compiler: dmd-2.091.0
+
+      - name: Run benchmarks with DMD
+        run: |
+          dub build --build release --single --compiler=dmd counter_speedy_stdio.d
+          time ./counter_speedy_stdio > /dev/null
+          time ./counter_speedy_stdio > /dev/null
+          &>./playground/README.md time ./counter_speedy_stdio > /dev/null
+          dub list | grep speedy
+
+      - name: commit to playground
+        uses: stefanzweifel/git-auto-commit-action@v4
+          with:
+            repository: './playground'
