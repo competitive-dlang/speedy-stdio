@@ -81,11 +81,11 @@ Changing "repeats" to 100000 in the "99 bottles of beer" example above and runni
 on a 64-bit Linux system with Intel Core i7-860 @2.8GHz processor produces the
 following results (redirected to /dev/null):
 
-| used module      | test code          | repeats   | LDC 1.30.0 | DMD 2.099.1 |
-|:----------------:|:------------------:|:---------:|:----------:|:-----------:|
-| std.stdio        | 99 bottles of beer | 100000    |    17.874s |     34.777s |
-| speedy.stdio     | 99 bottles of beer | 100000    |     4.749s |      9.132s |
-| speedy.fakestdio | 99 bottles of beer | 100000    |     1.749s |      5.403s |
+| used module      | test code          | repeats | DMD 2.099.1 | LDC 1.30.0 | GDC 9.5.0  | GDC 12.2.0 |
+|:----------------:|:------------------:|:-------:|:-----------:|:----------:|:----------:|:----------:|
+| std.stdio        | 99 bottles of beer | 100000  |     34.777s |    17.874s |  13.146s   |   26.120s  |
+| speedy.stdio     | 99 bottles of beer | 100000  |      9.132s |     4.749s |   4.124s   |    4.757s  |
+| speedy.fakestdio | 99 bottles of beer | 100000  |      5.403s |     1.749s |   2.057s   |    3.310s  |
 
 Another benchmark is just printing numbers from 0 to 100M on each line (redirected to /dev/null):
 
