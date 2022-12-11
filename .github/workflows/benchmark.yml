@@ -6,14 +6,9 @@ on:
       - benchmark
 
 jobs:
-  test:
-    name: bench
-    strategy:
-      matrix:
-        os: [ ubuntu-22.04 ]
-        dc: [ dmd-2.091.0, ldc-1.30.0 ]
+  benchmark:
+    runs-on: ubuntu-22.04
 
-    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v2
         with:
@@ -22,20 +17,41 @@ jobs:
       - name: Install D compiler
         uses: dlang-community/setup-dlang@v1
         with:
-          compiler: ${{ matrix.dc }}
+          compiler: dmd-2.091.0
 
-      - name: Show version
-        run: dub --version
-
-      - name: Run benchmarks
+      - name: Run benchmarks with DMD
         run: |
-          dub build --build release --single counter_speedy_stdio.d
-          dub build --build release --single counter_speedy_fakestdio.d
-          dub build --build release --single counter_std_stdio.d
+          dub build --build release --single --compiler=dmd counter_speedy_stdio.d
+          dub build --build release --single --compiler=dmd counter_speedy_fakestdio.d
+          dub build --build release --single --compiler=dmd counter_std_stdio.d
+          time ./counter_speedy_stdio > /dev/null
           time ./counter_speedy_stdio > /dev/null
           time ./counter_speedy_stdio > /dev/null
           time ./counter_speedy_fakestdio > /dev/null
           time ./counter_speedy_fakestdio > /dev/null
+          time ./counter_speedy_fakestdio > /dev/null
+          time ./counter_std_stdio > /dev/null
+          time ./counter_std_stdio > /dev/null
+          time ./counter_std_stdio > /dev/null
+          dub list | grep speedy
+
+      - name: Install D compiler
+        uses: dlang-community/setup-dlang@v1
+        with:
+          compiler: ldc-1.30.0
+
+      - name: Run benchmarks with LDC
+        run: |
+          dub build --build release --single --compiler=ldc2 counter_speedy_stdio.d
+          dub build --build release --single --compiler=ldc2 counter_speedy_fakestdio.d
+          dub build --build release --single --compiler=ldc2 counter_std_stdio.d
+          time ./counter_speedy_stdio > /dev/null
+          time ./counter_speedy_stdio > /dev/null
+          time ./counter_speedy_stdio > /dev/null
+          time ./counter_speedy_fakestdio > /dev/null
+          time ./counter_speedy_fakestdio > /dev/null
+          time ./counter_speedy_fakestdio > /dev/null
+          time ./counter_std_stdio > /dev/null
           time ./counter_std_stdio > /dev/null
           time ./counter_std_stdio > /dev/null
           dub list | grep speedy
