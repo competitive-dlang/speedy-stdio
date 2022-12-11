@@ -50,7 +50,7 @@ package template SpeedyWriter(SpeedySafety safety)
 
     private static bool isString(T)()
     {
-        return is(T == string);
+        return is(T == string) || is(T == immutable(string));
     }
 
     private static bool isNogcCompatibleNested(T)()
