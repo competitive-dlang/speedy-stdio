@@ -12,9 +12,16 @@ jobs:
     steps:
       - name: checkout speedy
         uses: actions/checkout@v3
-#        with:
-#          repository: ssvb/speedy-stdio
-#          ref: 'main'
+        with:
+          repository: ssvb/speedy-stdio
+          ref: 'main'
+
+      - name: checkout benchmark branch
+        uses: actions/checkout@v3
+        with:
+          repository: ssvb/speedy-stdio
+          ref: 'benchmark'
+          path: './benchmark'
 
       - name: checkout playground
         uses: actions/checkout@v3
@@ -38,7 +45,7 @@ jobs:
 
       - name: Run benchmarks with DMD
         run: |
-          ruby run_benchmark.rb dmd >> ./playground/README.md
+          ruby benchmark/run_benchmark.rb dmd >> ./playground/README.md
 
       - name: Install LDC compiler
         uses: dlang-community/setup-dlang@v1
@@ -47,7 +54,7 @@ jobs:
 
       - name: Run benchmarks with LDC
         run: |
-          ruby run_benchmark.rb ldc2 >> ./playground/README.md
+          ruby benchmark/run_benchmark.rb ldc2 >> ./playground/README.md
 
       - name: Install GDC 9
         run: |
@@ -56,7 +63,7 @@ jobs:
 
       - name: Run benchmarks with GDC 9
         run: |
-          ruby run_benchmark.rb gdc-9 >> ./playground/README.md
+          ruby benchmark/run_benchmark.rb gdc-9 >> ./playground/README.md
 
       - name: Install GDC 10
         run: |
@@ -65,7 +72,7 @@ jobs:
 
       - name: Run benchmarks with GDC 10
         run: |
-          ruby run_benchmark.rb gdc-10 >> ./playground/README.md
+          ruby benchmark/run_benchmark.rb gdc-10 >> ./playground/README.md
 
       - name: Install GDC 11
         run: |
@@ -74,7 +81,7 @@ jobs:
 
       - name: Run benchmarks with GDC 11
         run: |
-          ruby run_benchmark.rb gdc-11 >> ./playground/README.md
+          ruby benchmark/run_benchmark.rb gdc-11 >> ./playground/README.md
 
       - name: Install GDC 12
         run: |
@@ -83,7 +90,7 @@ jobs:
 
       - name: Run benchmarks with GDC 12
         run: |
-          ruby run_benchmark.rb gdc-12 >> ./playground/README.md
+          ruby benchmark/run_benchmark.rb gdc-12 >> ./playground/README.md
 
       - name: commit to playground
         uses: stefanzweifel/git-auto-commit-action@v4
