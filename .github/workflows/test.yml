@@ -11,6 +11,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
+          repository: ssvb/speedy-stdio
+          ref: 'main'
 
       - name: checkout playground
         uses: actions/checkout@v3
@@ -20,13 +22,17 @@ jobs:
           path: './playground'
           token: ${{ secrets.PLAYGROUND }}
 
+      - name: Install dependencies on Ubuntu
+        run: sudo apt-get update && sudo apt-get install libev-dev libevent-dev libsqlite3-dev ruby-full -y
+
       - name: Install DMD compiler
         uses: dlang-community/setup-dlang@v1
         with:
           compiler: dmd-latest
 
-      - name: Install dependencies on Ubuntu
-        run: sudo apt-get update && sudo apt-get install libev-dev libevent-dev libsqlite3-dev ruby-full -y
+      - name: Start
+        run: |
+          echo "=== new round ===" >> ./playground/README.md
 
       - name: Run benchmarks with DMD
         run: |
@@ -49,6 +55,24 @@ jobs:
       - name: Run benchmarks with GDC 9
         run: |
           ruby run_benchmark.rb gdc-9 >> ./playground/README.md
+
+      - name: Install GDC 10
+        run: |
+          sudo apt-get update
+          sudo apt-get install gdc-10 -y
+
+      - name: Run benchmarks with GDC 10
+        run: |
+          ruby run_benchmark.rb gdc-10 >> ./playground/README.md
+
+      - name: Install GDC 11
+        run: |
+          sudo apt-get update
+          sudo apt-get install gdc-10 -y
+
+      - name: Run benchmarks with GDC 11
+        run: |
+          ruby run_benchmark.rb gdc-11 >> ./playground/README.md
 
       - name: Install GDC 12
         run: |
