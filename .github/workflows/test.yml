@@ -12,9 +12,9 @@ jobs:
     steps:
       - name: checkout speedy
         uses: actions/checkout@v3
-        with:
-          repository: ssvb/speedy-stdio
-          ref: 'main'
+#        with:
+#          repository: ssvb/speedy-stdio
+#          ref: 'main'
 
       - name: checkout playground
         uses: actions/checkout@v3
