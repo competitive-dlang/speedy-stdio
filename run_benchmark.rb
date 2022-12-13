@@ -56,13 +56,17 @@ bottles_100k =  <<~'HEREDOC'
     }
     HEREDOC
 
-def run_benchmark(name, code, compiler)
+def run_benchmark(name, code, compiler, extra_dflags = "")
   compiler_version = `#{compiler} --version`.split("\n")[0].strip
   times = {}
   speedy_ver = "?"
   ["std.stdio", "speedy.stdio", "speedy.fakestdio"].each do |modulename|
     File.write("benchmark.d", code.sub(/import\s+std\.stdio\;/, "import #{modulename};"))
-    result = `dub build --build=release --single --force --compiler=#{compiler} benchmark.d`
+    if extra_dflags != ""
+      result = `DFLAGS="#{extra_dflags}" dub build --build=release --single --force --compiler=#{compiler} benchmark.d`
+    else
+      result = `dub build --build=release --single --force --compiler=#{compiler} benchmark.d`
+    end
     abort "build failure" unless $?.success?
     if result =~ /^speedy\-stdio (.*)\: building configuration \"library\"/
       speedy_ver = $1.strip
@@ -71,9 +75,11 @@ def run_benchmark(name, code, compiler)
     a.sort! {|x, y| (x.cutime + x.cstime) <=> (y.cutime + y.cstime) }
     times[modulename] = a[0].cutime + a[0].cstime
   end
-  return JSON.generate({test_name: name, compiler: compiler_version, cpu: cpuname, times: times, speedy_ver: speedy_ver})
+  return JSON.generate({test_name: name, compiler: compiler_version, cpu: cpuname, times: times, speedy_ver: speedy_ver, extra_dflags: extra_dflags})
 end
 
-puts run_benchmark("bottles_100k", bottles_100k, ARGV[0])
-puts run_benchmark("iota_counter_100m", iota_counter_100m, ARGV[0])
-puts run_benchmark("foreach_counter_100m", foreach_counter_100m, ARGV[0])
+extra_dflags = ARGV.size >= 2 ? ARGV[1] : ""
+
+puts run_benchmark("bottles_100k", bottles_100k, ARGV[0], extra_dflags)
+puts run_benchmark("iota_counter_100m", iota_counter_100m, ARGV[0], extra_dflags)
+puts run_benchmark("foreach_counter_100m", foreach_counter_100m, ARGV[0], extra_dflags)

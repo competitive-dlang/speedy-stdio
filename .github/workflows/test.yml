@@ -92,6 +92,10 @@ jobs:
         run: |
           ruby benchdir/run_benchmark.rb gdc-12 >> ./playground/README.md
 
+      - name: Run benchmarks with GDC 12 LTO
+        run: |
+          ruby benchdir/run_benchmark.rb gdc-12 -flto >> ./playground/README.md
+
       - name: commit to playground
         uses: stefanzweifel/git-auto-commit-action@v4
         with:
