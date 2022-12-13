@@ -66,10 +66,10 @@ def run_benchmark(name, code, compiler)
     abort "build failure" unless $?.success?
     if result =~ /^speedy\-stdio (.*)\: building configuration \"library\"/
       speedy_ver = $1.strip
-      a = 1.times.map { Benchmark.measure { `./benchmark > /dev/null` } }
-      a.sort! {|x, y| (x.cutime + x.cstime) <=> (y.cutime + y.cstime) }
-      times[modulename] = a[0].cutime + a[0].cstime
     end
+    a = 5.times.map { Benchmark.measure { `./benchmark > /dev/null` } }
+    a.sort! {|x, y| (x.cutime + x.cstime) <=> (y.cutime + y.cstime) }
+    times[modulename] = a[0].cutime + a[0].cstime
   end
   return JSON.generate({test_name: name, compiler: compiler_version, cpu: cpuname, times: times, speedy_ver: speedy_ver})
 end

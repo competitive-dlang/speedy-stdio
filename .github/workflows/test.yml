@@ -45,7 +45,6 @@ jobs:
 
       - name: Run benchmarks with DMD
         run: |
-          dmd --version
           ruby benchdir/run_benchmark.rb dmd >> ./playground/README.md
 
       - name: Install LDC compiler
