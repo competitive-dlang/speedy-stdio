@@ -45,6 +45,7 @@ jobs:
 
       - name: Run benchmarks with DMD
         run: |
+          dmd --version
           ruby benchdir/run_benchmark.rb dmd >> ./playground/README.md
 
       - name: Install LDC compiler
@@ -77,7 +78,7 @@ jobs:
       - name: Install GDC 11
         run: |
           sudo apt-get update
-          sudo apt-get install gdc-10 -y
+          sudo apt-get install gdc-11 -y
 
       - name: Run benchmarks with GDC 11
         run: |
