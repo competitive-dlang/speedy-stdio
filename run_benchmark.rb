@@ -64,7 +64,7 @@ def run_benchmark(name, code, compiler)
     File.write("benchmark.d", code.sub(/import\s+std\.stdio\;/, "import #{modulename};"))
     result = `dub build --build=release --single --compiler=#{compiler} benchmark.d`
     if result =~ /^speedy\-stdio (.*)\: building configuration \"library\"/
-      libver = $1.strip
+      speedy_ver = $1.strip
       a = 3.times.map { Benchmark.measure { `./benchmark > /dev/null` } }
       a.sort! {|x, y| (x.cutime + x.cstime) <=> (y.cutime + y.cstime) }
       times[modulename] = a[0].cutime + a[0].cstime
