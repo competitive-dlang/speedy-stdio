@@ -621,11 +621,11 @@ alias writeln = SpeedyWriter!(SpeedySafety.Safe).writeln;
 alias writef = SpeedyWriter!(SpeedySafety.Safe).writef;
 alias writefln = SpeedyWriter!(SpeedySafety.Safe).writefln;
 
-alias unsafe_write = SpeedyWriter!(SpeedySafety.Unsafe).write;
-alias unsafe_writeln = SpeedyWriter!(SpeedySafety.Unsafe).writeln;
-alias unsafe_writef = SpeedyWriter!(SpeedySafety.Unsafe).writef;
-alias unsafe_writefln = SpeedyWriter!(SpeedySafety.Unsafe).writefln;
-alias unsafe_stdout_flush = SpeedyWriter!(SpeedySafety.Unsafe).flush;
+package alias unsafe_write = SpeedyWriter!(SpeedySafety.Unsafe).write;
+package alias unsafe_writeln = SpeedyWriter!(SpeedySafety.Unsafe).writeln;
+package alias unsafe_writef = SpeedyWriter!(SpeedySafety.Unsafe).writef;
+package alias unsafe_writefln = SpeedyWriter!(SpeedySafety.Unsafe).writefln;
+package alias unsafe_stdout_flush = SpeedyWriter!(SpeedySafety.Unsafe).flush;
 
 version (unittest)
 {
