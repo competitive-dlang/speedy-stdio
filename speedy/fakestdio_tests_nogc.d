@@ -1,5 +1,6 @@
 module speedy.fakestdio_tests_nogc;
 @safe @nogc:
+import speedy.stdio : enforce;
 import speedy.fakestdio;
 
 @nogc unittest
@@ -75,4 +76,16 @@ import speedy.fakestdio;
     writefln!"%(%s, %)"(a);
     auto expected_data = "hello 123 1 % 2 % 3\n1, 2, 3\n";
     assert(stdout.buffer_contains(expected_data), "writefln");
+}
+
+@nogc unittest
+{
+    try
+    {
+        enforce!"test"(1 == 2);
+    }
+    catch (Exception e)
+    {
+        assert(e.msg == "test");
+    }
 }

@@ -35,6 +35,17 @@ public import std.stdio;
 import std.range, std.format, std.algorithm, std.traits, core.bitop;
 import std.exception;
 
+/* @nogc compatible variant of enforce */
+package T enforce(string msg, T)(T cond)
+{
+    if (!cond)
+    {
+        static immutable e = new Exception(msg);
+        throw e;
+    }
+    return cond;
+}
+
 private enum SpeedySafety
 {
     Safe,
@@ -139,7 +150,7 @@ package template SpeedyWriter(SpeedySafety safety)
                     buffer = buffer[result .. $];
                     continue;
                 }
-                assert(result == -1 && (errno == EAGAIN || errno == EINTR), "unexpected error type");
+                enforce!"unexpected write error"(result == -1 && (errno == EAGAIN || errno == EINTR));
             }
         }
     }
@@ -159,7 +170,7 @@ package template SpeedyWriter(SpeedySafety safety)
                     buffer = buffer[actual_written .. $];
                     continue;
                 }
-                assert(result, "unexpected error");
+                enforce!"unexpected write error"(result);
             }
         }
     }
@@ -216,7 +227,7 @@ package template SpeedyWriter(SpeedySafety safety)
         {
             rawWriteStdout(cast(char[]) outbuf[0 .. outbuf_size]);
             outbuf_size = 0;
-            assert(size <= outbuf.sizeof, "write buffer is too small");
+            enforce!"write buffer is too small"(size <= outbuf.sizeof);
         }
     }
 
@@ -566,7 +577,7 @@ private ParsedFmt parsefmt(string fmt)
             }
             else
             {
-                enforce(tmp.length >= 2);
+                enforce!"format string can't end with lonely '%'"(tmp.length >= 2);
                 if (tmp[1] == '%')
                 {
                     prefix ~= fmt[0 .. fmt.length - tmp.length + 1];
@@ -587,7 +598,7 @@ private ParsedFmt parsefmt(string fmt)
     result.prefix = scan_until_spec(fmt);
     while (!fmt.empty)
     {
-        enforce(fmt.length >= 2 && fmt[0] == '%');
+        /* have at least two characters and the first one is '%' */
         if (fmt[1] == '(' || (fmt.length >= 3 && fmt[1] == '-' && fmt[2] == '('))
         {
             byte compound = 1;
@@ -596,11 +607,11 @@ private ParsedFmt parsefmt(string fmt)
                 compound = 2;
                 fmt = fmt[1 .. $];
             }
-            enforce(fmt.length >= 6 && fmt[2] == '%'); // at least %(%s%)
+            enforce!"invalid compound format"(fmt.length >= 6 && fmt[2] == '%');
             char spec = fmt[3];
             fmt = fmt[4 .. $];
             string separator = scan_until_spec(fmt);
-            enforce(fmt.length >= 2 && fmt[1] == ')');
+            enforce!"invalid compound format"(fmt.length >= 2 && fmt[1] == ')');
             fmt = fmt[2 .. $];
             string suffix = scan_until_spec(fmt);
             result.tokens ~= FmtToken(spec, compound, separator, suffix);
