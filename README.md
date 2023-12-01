@@ -1,7 +1,5 @@
 # speedy-stdio
 
-**Note: it's a very new library in its eary days and may contain bugs, bugreports are welcome!**
-
 Do you have a program implemented in D programming language, which somehow needs to read and parse gigantic
 amounts of text from *stdin* and then write gigantic amounts of text to *stdout*? If the answer is "yes",
 then this library may be interesting for you.
@@ -65,7 +63,7 @@ void main() {
 }
 ```
 
-Install the [DUB package manager](https://github.com/dlang/dub) and run the example in a [script-like fashion](https://dub.pm/advanced_usage):
+Install the [DUB package manager](https://github.com/dlang/dub) and run the example in a [script-like fashion](https://dub.pm/dub-guide/single):
 ```
 $ dub bottles.d
 ```
